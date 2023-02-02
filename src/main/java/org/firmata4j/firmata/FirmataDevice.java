@@ -461,7 +461,9 @@ public class FirmataDevice implements IODevice {
         public void accept(Event event) {
             analogMapping = (Map<Integer, Integer>) event.getBodyItem(ANALOG_MAPPING);
             try {
-                sendMessage(FirmataMessageFactory.analogReport(true));
+            	// JFL turn off analog reporting
+            	System.err.println("turning off analog reporting");
+                sendMessage(FirmataMessageFactory.analogReport(false));
                 sendMessage(FirmataMessageFactory.digitalReport(true));
             } catch (IOException ex) {
                 LOGGER.error("Cannot enable reporting from device", ex);
