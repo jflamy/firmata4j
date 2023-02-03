@@ -41,7 +41,7 @@ public class FirmataMessageFactory {
      */
     public static final byte[] REQUEST_FIRMWARE = {START_SYSEX, REPORT_FIRMWARE, END_SYSEX};
     /**
-     * This message requests capability repot of a Firmata device.
+     * This message requests capability repost of a Firmata device.
      */
     public static final byte[] REQUEST_CAPABILITY = {START_SYSEX, CAPABILITY_QUERY, END_SYSEX};
     /**

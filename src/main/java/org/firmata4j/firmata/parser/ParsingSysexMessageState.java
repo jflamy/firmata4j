@@ -45,7 +45,8 @@ import static org.firmata4j.firmata.parser.FirmataToken.*;
  */
 public class ParsingSysexMessageState extends AbstractState {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(ParsingSysexMessageState.class);
+    @SuppressWarnings("unused")
+	private static final Logger LOGGER = LoggerFactory.getLogger(ParsingSysexMessageState.class);
     private static final Map<Byte, Class<? extends State>> STATES;
 
     static {

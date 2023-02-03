@@ -108,7 +108,6 @@ public class Example {
         });
     }
 
-    @SuppressWarnings("unchecked")
     private static String requestPort() {
         JComboBox<String> portNameSelector = new JComboBox<>();
         portNameSelector.setModel(new DefaultComboBoxModel<String>());

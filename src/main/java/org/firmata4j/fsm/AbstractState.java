@@ -38,7 +38,8 @@ public abstract class AbstractState implements State {
     private final FiniteStateMachine fsm;
     private byte[] buffer = new byte[128];
     private int index;
-    private static final Logger LOGGER = LoggerFactory.getLogger(AbstractState.class);
+    @SuppressWarnings("unused")
+	private static final Logger LOGGER = LoggerFactory.getLogger(AbstractState.class);
 
     public AbstractState(FiniteStateMachine fsm) {
         this.fsm = fsm;

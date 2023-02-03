@@ -175,6 +175,10 @@ public class FirmataDevice implements IODevice {
             try {
                 parser.start();
                 transport.start();
+                try {
+					Thread.sleep(1000);
+				} catch (InterruptedException e) {
+				}
                 sendMessage(FirmataMessageFactory.REQUEST_FIRMWARE);
             } catch (IOException ex) {
                 transport.stop();
@@ -462,7 +466,7 @@ public class FirmataDevice implements IODevice {
             analogMapping = (Map<Integer, Integer>) event.getBodyItem(ANALOG_MAPPING);
             try {
             	// JFL turn off analog reporting
-            	System.err.println("turning off analog reporting");
+            	LOGGER.info("Turning off analog reporting");
                 sendMessage(FirmataMessageFactory.analogReport(false));
                 sendMessage(FirmataMessageFactory.digitalReport(true));
             } catch (IOException ex) {

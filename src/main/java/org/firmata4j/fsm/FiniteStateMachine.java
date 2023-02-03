@@ -72,7 +72,7 @@ public class FiniteStateMachine {
      * impossible (likely because of lack of the constructor taking the FSM as a
      * parameter)
      */
-    @SuppressWarnings("LeakingThisInConstructor")
+    //@SuppressWarnings("LeakingThisInConstructor")
     public FiniteStateMachine(Class<? extends State> stateClass) {
         this();
         try {

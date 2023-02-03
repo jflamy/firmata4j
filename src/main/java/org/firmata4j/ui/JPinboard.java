@@ -39,7 +39,8 @@ import org.slf4j.LoggerFactory;
  */
 public class JPinboard extends JPanel {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(JPinboard.class);
+    @SuppressWarnings("unused")
+	private static final Logger LOGGER = LoggerFactory.getLogger(JPinboard.class);
 
     public JPinboard(IODevice model) {
         GridBagLayout layout = new GridBagLayout();
