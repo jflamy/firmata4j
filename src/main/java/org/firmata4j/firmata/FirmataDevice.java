@@ -76,7 +76,7 @@ public class FirmataDevice implements IODevice {
 	private volatile Map<Integer, Integer> analogMapping;
 
 	private static final ThreadFactory THREAD_FACTORY = new DaemonThreadFactory("firmata-event-handler");
-	private static final long TIMEOUT = 3000L;
+	private static final long TIMEOUT = 30000L;
 	private static final Logger LOGGER = LoggerFactory.getLogger(FirmataDevice.class);
 
 	/**
@@ -206,7 +206,7 @@ public class FirmataDevice implements IODevice {
 		giveUp = false;
 		try {
 			Thread t1 = new Thread(() -> {
-				long waitMs = 1000;
+				long waitMs = 10000;
 				while (!isReady() && !giveUp) {
 					try {
 						if (!isReady()) {
