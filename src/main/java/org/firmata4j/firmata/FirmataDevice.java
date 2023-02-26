@@ -172,14 +172,31 @@ public class FirmataDevice implements IODevice {
 			try {
 				parser.start();
 				transport.start();
-//				LOGGER.debug("initial REQUEST_FIRMWARE");
-//				sendMessage(FirmataMessageFactory.REQUEST_FIRMWARE);
-//				LOGGER.debug("after initial REQUEST_FIRMWARE");
+                try {
+					Thread.sleep(1000);
+				} catch (InterruptedException e) {
+				}
+                long start = System.currentTimeMillis();
+                Thread t1 = new Thread( () -> {
+                try {
+                	LOGGER.info("Requesting Firmware");
+					sendMessage(FirmataMessageFactory.REQUEST_FIRMWARE);
+				} catch (IOException e) {
+					throw new RuntimeException(e);
+				}
+                });
+                t1.start();
+                t1.join(TIMEOUT+1000);
+                if (!isReady() && System.currentTimeMillis()-start > TIMEOUT) {
+                	throw new RuntimeException("could not initialize port.");
+                }
 			} catch (IOException ex) {
 				LOGGER.warn("start failed");
 				transport.stop();
 				parser.stop();
 				throw ex;
+			} catch (InterruptedException e) {
+				e.printStackTrace();
 			}
 		}
 	}
@@ -193,9 +210,31 @@ public class FirmataDevice implements IODevice {
 		}
 	}
 
-	boolean giveUp = false;
-	@Override
+    @Override
 	public void ensureInitializationIsDone() throws InterruptedException {
+        if (!started.get()) {
+            try {
+                start();
+            } catch (IOException ex) {
+                throw new InterruptedException(ex.getMessage());
+            }
+        }
+        long timePassed = 0L;
+        long timeout = 100;
+        while (!isReady()) {
+            if (timePassed >= TIMEOUT) {
+                throw new InterruptedException("Connection timeout.\n"
+                        + "Please, make sure the board runs a firmware that supports Firmata protocol.\n"
+                        + "The firmware has to implement callbacks for CAPABILITY_QUERY, PIN_STATE_QUERY and ANALOG_MAPPING_QUERY in order for the initialization to work."
+                );
+            }
+            timePassed += timeout;
+            Thread.sleep(timeout);
+        }
+    }
+	boolean giveUp = false;
+
+	public void ensureInitializationIsDone2() throws InterruptedException {
 		if (!started.get()) {
 			try {
 				start();
@@ -204,35 +243,31 @@ public class FirmataDevice implements IODevice {
 			}
 		}
 		giveUp = false;
-		try {
-			Thread t1 = new Thread(() -> {
-				long waitMs = 10000;
-				while (!isReady() && !giveUp) {
-					try {
-						if (!isReady()) {
-							LOGGER.debug("REQUEST_FIRMWARE");
-							sendMessage(FirmataMessageFactory.REQUEST_FIRMWARE);
-						}
-					} catch (IOException e) {
-						e.printStackTrace();
+		Thread t1 = new Thread(() -> {
+			long waitMs = TIMEOUT/2;
+			while (!isReady() && !giveUp) {
+				try {
+					if (!isReady()) {
+						LOGGER.debug("REQUEST_FIRMWARE");
+						sendMessage(FirmataMessageFactory.REQUEST_FIRMWARE);
 					}
-					try {
-						Thread.sleep(waitMs);
-					} catch (InterruptedException e) {
-					}
+				} catch (IOException e) {
+					e.printStackTrace();
 				}
-			});
-			t1.start();
-			t1.join(TIMEOUT);
-			if (!isReady()) {
-				giveUp = true;
-				throw new InterruptedException("Connection timeout.\n"
-				        + "Please, make sure the board runs a firmware that supports Firmata protocol.\n"
-				        + "The firmware has to implement callbacks for CAPABILITY_QUERY, PIN_STATE_QUERY and ANALOG_MAPPING_QUERY in order for the initialization to work.");
+				try {
+					Thread.sleep(waitMs);
+				} catch (InterruptedException e) {
+					LOGGER.error("sleep interrupted");
+				}
 			}
-		} catch (InterruptedException ex) {
-			LOGGER.error("interrupted");
-			throw new RuntimeException(ex.getCause() != null ? ex.getCause() : ex );
+		});
+		t1.start();
+		t1.join(TIMEOUT+1000);
+		if (!isReady()) {
+			giveUp = true;
+			throw new RuntimeException("Connection timeout.\n"
+			        + "Please, make sure the board runs a firmware that supports Firmata protocol.\n"
+			        + "The firmware has to implement callbacks for CAPABILITY_QUERY, PIN_STATE_QUERY and ANALOG_MAPPING_QUERY in order for the initialization to work.");
 		}
 	}
 
