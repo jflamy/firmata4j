@@ -179,7 +179,7 @@ public class FirmataDevice implements IODevice {
                 long start = System.currentTimeMillis();
                 Thread t1 = new Thread( () -> {
                 try {
-                	LOGGER.info("Requesting Firmware");
+                	LOGGER.warn("start - Requesting Firmware");
 					sendMessage(FirmataMessageFactory.REQUEST_FIRMWARE);
 				} catch (IOException e) {
 					throw new RuntimeException(e);
@@ -248,7 +248,7 @@ public class FirmataDevice implements IODevice {
 			while (!isReady() && !giveUp) {
 				try {
 					if (!isReady()) {
-						LOGGER.debug("REQUEST_FIRMWARE");
+						LOGGER.warn("initialization - REQUEST_FIRMWARE");
 						sendMessage(FirmataMessageFactory.REQUEST_FIRMWARE);
 					}
 				} catch (IOException e) {

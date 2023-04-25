@@ -146,7 +146,7 @@ public class FirmataPin implements Pin {
 				}
 			}
 			byte bitmask = (byte) (1 << pinInPort);
-			boolean val = value > 0;
+			boolean val = value >= 0.001;
 			if (val) {
 				portValue |= bitmask;
 			} else {
