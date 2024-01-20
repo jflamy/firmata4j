@@ -23,15 +23,31 @@
  */
 package org.firmata4j.firmata;
 
-import org.firmata4j.*;
-import org.firmata4j.firmata.parser.FirmataParser;
-import org.firmata4j.firmata.parser.WaitingForMessageState;
-import org.firmata4j.fsm.Event;
-import org.firmata4j.fsm.FiniteStateMachine;
-import org.firmata4j.transport.SerialTransport;
-import org.firmata4j.transport.TransportInterface;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import static org.firmata4j.firmata.parser.FirmataEventType.ANALOG_MAPPING;
+import static org.firmata4j.firmata.parser.FirmataEventType.ANALOG_MAPPING_MESSAGE;
+import static org.firmata4j.firmata.parser.FirmataEventType.ANALOG_MESSAGE_RESPONSE;
+import static org.firmata4j.firmata.parser.FirmataEventType.DIGITAL_MESSAGE_RESPONSE;
+import static org.firmata4j.firmata.parser.FirmataEventType.FIRMWARE_MAJOR;
+import static org.firmata4j.firmata.parser.FirmataEventType.FIRMWARE_MESSAGE;
+import static org.firmata4j.firmata.parser.FirmataEventType.FIRMWARE_MINOR;
+import static org.firmata4j.firmata.parser.FirmataEventType.FIRMWARE_NAME;
+import static org.firmata4j.firmata.parser.FirmataEventType.I2C_ADDRESS;
+import static org.firmata4j.firmata.parser.FirmataEventType.I2C_MESSAGE;
+import static org.firmata4j.firmata.parser.FirmataEventType.I2C_REGISTER;
+import static org.firmata4j.firmata.parser.FirmataEventType.PIN_CAPABILITIES_FINISHED;
+import static org.firmata4j.firmata.parser.FirmataEventType.PIN_CAPABILITIES_MESSAGE;
+import static org.firmata4j.firmata.parser.FirmataEventType.PIN_ID;
+import static org.firmata4j.firmata.parser.FirmataEventType.PIN_MODE;
+import static org.firmata4j.firmata.parser.FirmataEventType.PIN_STATE;
+import static org.firmata4j.firmata.parser.FirmataEventType.PIN_SUPPORTED_MODES;
+import static org.firmata4j.firmata.parser.FirmataEventType.PIN_VALUE;
+import static org.firmata4j.firmata.parser.FirmataEventType.PROTOCOL_MAJOR;
+import static org.firmata4j.firmata.parser.FirmataEventType.PROTOCOL_MESSAGE;
+import static org.firmata4j.firmata.parser.FirmataEventType.PROTOCOL_MINOR;
+import static org.firmata4j.firmata.parser.FirmataEventType.STRING_MESSAGE;
+import static org.firmata4j.firmata.parser.FirmataToken.FIRMATA_MAJOR_VERSION;
+import static org.firmata4j.firmata.parser.FirmataToken.FIRMATA_MINOR_VERSION;
+
 import java.io.IOException;
 import java.text.MessageFormat;
 import java.util.ArrayDeque;
@@ -50,8 +66,23 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import static org.firmata4j.firmata.parser.FirmataEventType.*;
-import static org.firmata4j.firmata.parser.FirmataToken.*;
+
+import org.firmata4j.Consumer;
+import org.firmata4j.I2CDevice;
+import org.firmata4j.IODevice;
+import org.firmata4j.IODeviceEventListener;
+import org.firmata4j.IOEvent;
+import org.firmata4j.OnStopListener;
+import org.firmata4j.Parser;
+import org.firmata4j.Pin;
+import org.firmata4j.firmata.parser.FirmataParser;
+import org.firmata4j.firmata.parser.WaitingForMessageState;
+import org.firmata4j.fsm.Event;
+import org.firmata4j.fsm.FiniteStateMachine;
+import org.firmata4j.transport.SerialTransport;
+import org.firmata4j.transport.TransportInterface;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Implements {@link IODevice} that is using Firmata protocol.
@@ -74,7 +105,6 @@ public class FirmataDevice implements IODevice {
 	private final Map<Byte, FirmataI2CDevice> i2cDevices = new HashMap<>();
 	private volatile Map<String, Object> firmwareInfo;
 	private volatile Map<Integer, Integer> analogMapping;
-
 	private static final ThreadFactory THREAD_FACTORY = new DaemonThreadFactory("firmata-event-handler");
 	private static final long TIMEOUT = 30000L;
 	private static final Logger LOGGER = LoggerFactory.getLogger(FirmataDevice.class);
@@ -89,8 +119,7 @@ public class FirmataDevice implements IODevice {
 	}
 
 	/**
-	 * Constructs FirmataDevice instance that operates on default protocol using
-	 * specified transport.
+	 * Constructs FirmataDevice instance that operates on default protocol using specified transport.
 	 *
 	 * @param transport the communication channel
 	 */
@@ -140,8 +169,7 @@ public class FirmataDevice implements IODevice {
 	 * Constructs FirmataDevice instance using the specified transport and protocol.
 	 *
 	 * @param transport the communication channel
-	 * @param protocol  finite state machine that can understand the byte stream
-	 *                  from the transport
+	 * @param protocol  finite state machine that can understand the byte stream from the transport
 	 */
 	public FirmataDevice(TransportInterface transport, FiniteStateMachine protocol) {
 		parser = new FirmataParser(protocol);
@@ -154,44 +182,37 @@ public class FirmataDevice implements IODevice {
 	public void start() throws IOException {
 		if (!started.getAndSet(true)) {
 			/*
-			 * The startup strategy is to start device and immediately send the
-			 * REPORT_FIRMWARE message. When we receive the firmware name reply, then we
-			 * know the board is ready to communicate.
+			 * The startup strategy is to start device and immediately send the REPORT_FIRMWARE message. When we receive
+			 * the firmware name reply, then we know the board is ready to communicate.
 			 * 
-			 * For boards like Arduino which use DTR to reset, they may reboot the moment
-			 * the port opens. They will not hear this REPORT_FIRMWARE message, but when
-			 * they finish booting up they will send the firmware message.
+			 * For boards like Arduino which use DTR to reset, they may reboot the moment the port opens. They will not
+			 * hear this REPORT_FIRMWARE message, but when they finish booting up they will send the firmware message.
 			 * 
-			 * For boards that do not reboot when the port opens, they will hear this
-			 * REPORT_FIRMWARE request and send the response. If this REPORT_FIRMWARE
-			 * request isn't sent, these boards will not automatically send this info.
+			 * For boards that do not reboot when the port opens, they will hear this REPORT_FIRMWARE request and send
+			 * the response. If this REPORT_FIRMWARE request isn't sent, these boards will not automatically send this
+			 * info.
 			 * 
-			 * Either way, when we hear the REPORT_FIRMWARE reply, we know the board is
-			 * alive and ready to communicate.
+			 * Either way, when we hear the REPORT_FIRMWARE reply, we know the board is alive and ready to communicate.
 			 */
 			try {
 				parser.start();
 				transport.start();
-                try {
-					Thread.sleep(1000);
-				} catch (InterruptedException e) {
+
+				long start = System.currentTimeMillis();
+				Thread t1 = new Thread(() -> {
+					try {
+						sendMessage(FirmataMessageFactory.REQUEST_FIRMWARE);
+					} catch (IOException e) {
+						throw new RuntimeException(e);
+					}
+				});
+				t1.start();
+				t1.join(TIMEOUT + 1000);
+				if (!isReady() && System.currentTimeMillis() - start > TIMEOUT) {
+					throw new RuntimeException("could not initialize port.");
 				}
-                long start = System.currentTimeMillis();
-                Thread t1 = new Thread( () -> {
-                try {
-                	LOGGER.warn("start - Requesting Firmware");
-					sendMessage(FirmataMessageFactory.REQUEST_FIRMWARE);
-				} catch (IOException e) {
-					throw new RuntimeException(e);
-				}
-                });
-                t1.start();
-                t1.join(TIMEOUT+1000);
-                if (!isReady() && System.currentTimeMillis()-start > TIMEOUT) {
-                	throw new RuntimeException("could not initialize port.");
-                }
 			} catch (IOException ex) {
-				LOGGER.warn("start failed");
+				LOGGER.warn("start failed {}", ex.getCause());
 				transport.stop();
 				parser.stop();
 				throw ex;
@@ -210,28 +231,28 @@ public class FirmataDevice implements IODevice {
 		}
 	}
 
-    @Override
+	@Override
 	public void ensureInitializationIsDone() throws InterruptedException {
-        if (!started.get()) {
-            try {
-                start();
-            } catch (IOException ex) {
-                throw new InterruptedException(ex.getMessage());
-            }
-        }
-        long timePassed = 0L;
-        long timeout = 100;
-        while (!isReady()) {
-            if (timePassed >= TIMEOUT) {
-                throw new InterruptedException("Connection timeout.\n"
-                        + "Please, make sure the board runs a firmware that supports Firmata protocol.\n"
-                        + "The firmware has to implement callbacks for CAPABILITY_QUERY, PIN_STATE_QUERY and ANALOG_MAPPING_QUERY in order for the initialization to work."
-                );
-            }
-            timePassed += timeout;
-            Thread.sleep(timeout);
-        }
-    }
+		if (!started.get()) {
+			try {
+				start();
+			} catch (IOException ex) {
+				throw new InterruptedException(ex.getMessage());
+			}
+		}
+		long timePassed = 0L;
+		long timeout = 100;
+		while (!isReady()) {
+			if (timePassed >= TIMEOUT) {
+				throw new InterruptedException("Connection timeout.\n"
+				        + "Please, make sure the board runs a firmware that supports Firmata protocol.\n"
+				        + "The firmware has to implement callbacks for CAPABILITY_QUERY, PIN_STATE_QUERY and ANALOG_MAPPING_QUERY in order for the initialization to work.");
+			}
+			timePassed += timeout;
+			Thread.sleep(timeout);
+		}
+	}
+
 	boolean giveUp = false;
 
 	public void ensureInitializationIsDone2() throws InterruptedException {
@@ -244,7 +265,7 @@ public class FirmataDevice implements IODevice {
 		}
 		giveUp = false;
 		Thread t1 = new Thread(() -> {
-			long waitMs = TIMEOUT/2;
+			long waitMs = TIMEOUT / 2;
 			while (!isReady() && !giveUp) {
 				try {
 					if (!isReady()) {
@@ -262,7 +283,7 @@ public class FirmataDevice implements IODevice {
 			}
 		});
 		t1.start();
-		t1.join(TIMEOUT+1000);
+		t1.join(TIMEOUT + 1000);
 		if (!isReady()) {
 			giveUp = true;
 			throw new RuntimeException("Connection timeout.\n"
@@ -316,12 +337,14 @@ public class FirmataDevice implements IODevice {
 		        firmwareInfo.get(FIRMWARE_MINOR));
 	}
 
+	public String getFirmware() {
+		return (String) firmwareInfo.get(FIRMWARE_NAME);
+	}
+	
 	@Override
 	public void addProtocolMessageHandler(String messageType, Consumer<Event> handler) {
 		protocol.addHandler(messageType, handler);
 	}
-
-	// TODO add get firmware method
 
 	@Override
 	public void sendMessage(String message) throws IOException {
@@ -334,8 +357,7 @@ public class FirmataDevice implements IODevice {
 
 	/**
 	 * Sends raw message to connected Firmata device using open port.<br/>
-	 * Consider using {@link FirmataMessageFactory} methods to prepare binary
-	 * messages before sending.
+	 * Consider using {@link FirmataMessageFactory} methods to prepare binary messages before sending.
 	 *
 	 * @param msg the Firmata message
 	 * @throws IOException when writing fails
@@ -359,9 +381,8 @@ public class FirmataDevice implements IODevice {
 	}
 
 	/**
-	 * Sets delay between the moment an I2C device's register is written to and the
-	 * moment when the data can be read from that register. The delay is set per
-	 * firmata-device (not per I2C device). So firmata-device uses the longest
+	 * Sets delay between the moment an I2C device's register is written to and the moment when the data can be read
+	 * from that register. The delay is set per firmata-device (not per I2C device). So firmata-device uses the longest
 	 * delay.
 	 *
 	 * @param delay longest delay between writing to I2C and reading from it
@@ -379,8 +400,7 @@ public class FirmataDevice implements IODevice {
 	}
 
 	/**
-	 * Tries to release all resources and properly terminate the connection to the
-	 * hardware.
+	 * Tries to release all resources and properly terminate the connection to the hardware.
 	 *
 	 * @throws IOException when communication could not be stopped properly
 	 */
@@ -405,7 +425,7 @@ public class FirmataDevice implements IODevice {
 				        event.getBodyItem(PROTOCOL_MAJOR), event.getBodyItem(PROTOCOL_MINOR), FIRMATA_MAJOR_VERSION,
 				        FIRMATA_MINOR_VERSION);
 			} else if (!event.getBodyItem(PROTOCOL_MINOR).equals((int) FIRMATA_MINOR_VERSION)) {
-				LOGGER.warn(
+				LOGGER.debug(
 				        "Current version of firmata protocol on device ({}.{}) differs from version supported by firmata4j ({}.{})."
 				                + " Though these are compatible you may experience some issues.",
 				        event.getBodyItem(PROTOCOL_MAJOR), event.getBodyItem(PROTOCOL_MINOR), FIRMATA_MAJOR_VERSION,
@@ -413,7 +433,6 @@ public class FirmataDevice implements IODevice {
 			}
 		}
 	};
-
 	/**
 	 * Describes reaction to firmware data receiving.
 	 */
@@ -430,7 +449,6 @@ public class FirmataDevice implements IODevice {
 			}
 		}
 	};
-
 	/**
 	 * Describes reaction to capabilities data receiving.
 	 */
@@ -453,7 +471,6 @@ public class FirmataDevice implements IODevice {
 			}
 		}
 	};
-
 	/**
 	 * Called when capabilities for the all the pins are received.
 	 */
@@ -477,7 +494,6 @@ public class FirmataDevice implements IODevice {
 			}
 		}
 	};
-
 	/**
 	 * Describes reaction to the pin state data receiving.
 	 */
@@ -507,7 +523,6 @@ public class FirmataDevice implements IODevice {
 			}
 		}
 	};
-
 	/**
 	 * Describes reaction to the analog mapping data receiving.
 	 */
@@ -533,7 +548,6 @@ public class FirmataDevice implements IODevice {
 			}
 		}
 	};
-
 	/**
 	 * Describes reaction to the analog message data receiving.
 	 */
@@ -552,7 +566,6 @@ public class FirmataDevice implements IODevice {
 			}
 		}
 	};
-
 	/**
 	 * Describes reaction to the digital message data receiving.
 	 */
@@ -568,7 +581,6 @@ public class FirmataDevice implements IODevice {
 			}
 		}
 	};
-
 	private final Consumer<Event> onI2cMessageReceive = new Consumer<Event>() {
 		@Override
 		public void accept(Event event) {
@@ -581,7 +593,6 @@ public class FirmataDevice implements IODevice {
 			}
 		}
 	};
-
 	private final Consumer<Event> onStringMessageReceive = new Consumer<Event>() {
 		@Override
 		public void accept(Event event) {
