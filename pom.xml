@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.github.kurbatov</groupId>
     <artifactId>firmata4j</artifactId>
-    <version>2.3.9-owlcms04</version>
+    <version>2.3.9-owlcms05</version>
     <packaging>jar</packaging>
     <name>firmata4j</name>
     <description>firmata4j is a client library of Firmata.</description>
@@ -45,7 +45,7 @@
         <dependency>
             <groupId>com.fazecast</groupId>
             <artifactId>jSerialComm</artifactId>
-            <version>2.9.3</version>
+            <version>2.11.4</version>
             <optional>true</optional>
         </dependency>
         
