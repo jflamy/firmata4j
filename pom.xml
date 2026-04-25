@@ -41,12 +41,13 @@
             <groupId>io.github.java-native</groupId>
             <artifactId>jssc</artifactId>
             <version>${jssc.version}</version>
+            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>com.fazecast</groupId>
             <artifactId>jSerialComm</artifactId>
             <version>2.11.4</version>
-            <optional>true</optional>
+            <optional>false</optional>
         </dependency>
         
         <dependency>

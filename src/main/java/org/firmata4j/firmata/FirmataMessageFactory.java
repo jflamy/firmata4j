@@ -88,7 +88,7 @@ public class FirmataMessageFactory {
         result[1] = I2C_REQUEST;
         result[2] = slaveAddress;
         result[3] = I2C_WRITE;
-        //TODO replace I2C_WRITE with generated slave address (MSB) to support 10-bit mode
+        //XTODO replace I2C_WRITE with generated slave address (MSB) to support 10-bit mode
         // see https://github.com/firmata/protocol/blob/master/i2c.md
         for (int x = 0; x < bytesToWrite.length; x++) {
             int skipIndex = x * 2 + 4;
@@ -117,7 +117,7 @@ public class FirmataMessageFactory {
         } else {
             command = I2C_READ;
         }
-        //TODO replace hardcoded slave address (MSB) with generated one to support 10-bit mode
+        //XTODO replace hardcoded slave address (MSB) with generated one to support 10-bit mode
         // see https://github.com/firmata/protocol/blob/master/i2c.md
         if (register == FirmataI2CDevice.REGISTER_NOT_SET) {
             message = new byte[]{

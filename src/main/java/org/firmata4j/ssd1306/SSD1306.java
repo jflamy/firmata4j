@@ -199,7 +199,7 @@ public class SSD1306 {
                 break;
         }
         command(setPageAddress((byte) 0, pageEndAddr));
-        //TODO increase 2C bitrate if possible
+        //XTODO increase 2C bitrate if possible
         byte[] buffer = canvas.getBuffer();
         try {
             for (int i = 0; i < buffer.length / 16; i++) {
